@@ -6,6 +6,7 @@
 
 const float sampleRate = 44100.0;
 volatile float fOut = 1000.0;
+volatile float vol = 0.5;
 
 volatile int phInc;                  // dds phase increment
 volatile unsigned long phAcc;        // dds phase accumulator
@@ -81,6 +82,87 @@ void wibble (int base_freq) {
 
 }
 
+// lower trilled note
+void trill (int base_freq, int top_freq, int speed, int trills) {
+  int j=0;
+  while (j<trills) {
+    int i = base_freq;
+    
+    while(i<base_freq + top_freq) {
+      fOut = i;                                  // set output frequency in Hz
+      tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
+      delayMicroseconds(1);
+      i=i+speed;
+    }
+
+    while(i>=base_freq) {
+      fOut = i;                                  // set output frequency in Hz
+      tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
+      delayMicroseconds(1);
+      i=i-speed;
+    }
+    j++;
+  }
+}
+
+void hump (int base_freq, int speed) {
+
+  int i = base_freq;
+  
+  while(i<base_freq + 500) {
+    fOut = i;                                  // set output frequency in Hz
+    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
+    delayMicroseconds(1);
+    i=i+speed;
+  }
+
+  trill(2400, 70, 20, 40);
+
+  while(i>=base_freq) {
+    fOut = i;                                  // set output frequency in Hz
+    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
+    delayMicroseconds(1);
+    i=i-speed;
+  }
+ 
+}
+
+
+
+void hump_falling (int base_freq, int speed) {
+
+  int i = base_freq + 300;
+  
+  while(i<base_freq + 500) {
+    fOut = i;                                  // set output frequency in Hz
+    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
+    delayMicroseconds(1);
+    i=i+speed;
+  }
+
+  int j=0;
+  while (j < 10){
+    i = i - j*2;
+    fOut = i;
+    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
+    j++;
+    delayMicroseconds(3300);
+  }
+
+  while(i>=base_freq) {
+    fOut = i;                                  // set output frequency in Hz
+    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
+    delayMicroseconds(1);
+    i=i-speed;
+  }
+ 
+}
+
+// falling short note
+// void peal () {
+
+// }
+
 void rest_del(int del) {
   fOut = 0;
   tuningWord = pow(2, 32) * fOut / sampleRate;
@@ -88,13 +170,37 @@ void rest_del(int del) {
 }
 
 void loop () {
-  wibble(6000);
+
+  wibble(5000);
   rest_del(50);
 
-  wibble(5500);
+  wibble(4700);
+  rest_del(50);
+
+  wibble(4500);
+  rest_del(50);
+
+  wibble(4100);
   rest_del(50);
   
-  wibble(4900);
+  wibble(4000);
+  rest_del(2000);
+
+  vol = 0.7;
+  trill(1900, 500, 10, 5);
+  // rest_del(50);
+  vol = 0.8;
+
+  hump(2100, 20);
+  vol = 0.7;
+  // rest_del(50);
+  trill(1900, 500, 6, 3);
+  
+  rest_del(300);
+  hump_falling(1900, 15);
+  rest_del(100);
+  hump_falling(1900, 10);
+
   rest_del(3000);
 }
 
@@ -114,5 +220,5 @@ void TC4_Handler(timer_callback_args_t *p_args)
   phInc = phAcc >> 24; // 32 - 8 bytes for word
 
   // send current sine data sample to the DAC
-  analogWrite(OUT_PIN, sineData[phInc]);
+  analogWrite(OUT_PIN, sineData[phInc]*vol);
 }
