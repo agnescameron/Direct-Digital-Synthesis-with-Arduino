@@ -1,4 +1,4 @@
- #include <FspTimer.h>
+#include <FspTimer.h>
 
 // AO writes true analog out
 #define OUT_PIN A0
@@ -52,37 +52,44 @@ void setup () {
   Timer.start();
 }
 
-void wibble (int base_freq) {
-  int wait = 1;
-  int i = base_freq + 1000;
-  int exp_add = 10;
+void hill (int base_freq, int speed) {
+  vol = 0.0;
+  int i = base_freq;
 
-  // very sharp slope up, almost vertical
-  while(i<base_freq + 2000) {
-    fOut = i;                                  // set output frequency in Hz
-    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
-    delayMicroseconds(1);
-    i=i+exp_add;
-  }
 
-  // fall off slowly then more rapidly
-  while(i>base_freq) {
-    fOut = i;                                  // set output frequency in Hz
-    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
-    int exp_add = 100;
-
-    if(i%100 == 0) {
-      exp_add = exp_add + 1;
-      if( exp_add >= 10) exp_add = 10;
+  while(i<base_freq + 400) {
+    if (i%20 == 0) {
+      speed = speed - 1;
+      if (speed <=1) speed = 1;
     }
 
-    i=i-exp_add;
-    delayMicroseconds(1);
+    vol = vol + 0.02;
+    if (vol >= 1.0) vol = 1.0;
+
+    fOut = i;                                  // set output frequency in Hz
+    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
+    delayMicroseconds(1500);
+    i=i+speed;
   }
 
+  while(i>=base_freq) {
+    if (i%20 == 0) {
+      speed = speed + 1;
+    }
+
+    if (i <= base_freq + 200) {
+      vol = vol - 0.02;
+      if (vol <= 0.0) vol = 0.0;
+    }
+
+    fOut = i;                                  // set output frequency in Hz
+    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
+    delayMicroseconds(2000);
+    i=i-speed;
+  }
+ 
 }
 
-// lower trilled note
 void trill (int base_freq, int top_freq, int speed, int trills) {
   int j=0;
   while (j<trills) {
@@ -105,63 +112,31 @@ void trill (int base_freq, int top_freq, int speed, int trills) {
   }
 }
 
-void hump (int base_freq, int speed) {
-
-  int i = base_freq;
-  
-  while(i<base_freq + 500) {
-    fOut = i;                                  // set output frequency in Hz
-    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
-    delayMicroseconds(1);
-    i=i+speed;
-  }
-
-  trill(2400, 70, 20, 40);
+void dip (int base_freq, int speed) {
+  int i = base_freq + 900;
 
   while(i>=base_freq) {
     fOut = i;                                  // set output frequency in Hz
     tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
-    delayMicroseconds(1);
+    delayMicroseconds(1000);
     i=i-speed;
   }
- 
-}
 
+  speed = speed - 2;
+  while(i<base_freq + 300) {
+    if (i%20 == 0) {
+      speed = speed - 1;
+      if (speed <=1) speed = 1;
+    }
 
-
-void hump_falling (int base_freq, int speed) {
-
-  int i = base_freq + 300;
-  
-  while(i<base_freq + 500) {
     fOut = i;                                  // set output frequency in Hz
     tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
-    delayMicroseconds(1);
+    delayMicroseconds(1500);
     i=i+speed;
-  }
+  } 
 
-  int j=0;
-  while (j < 10){
-    i = i - j*2;
-    fOut = i;
-    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
-    j++;
-    delayMicroseconds(3300);
-  }
-
-  while(i>=base_freq) {
-    fOut = i;                                  // set output frequency in Hz
-    tuningWord = pow(2, 32) * fOut / sampleRate;  // DDS tuning word for target frequency
-    delayMicroseconds(1);
-    i=i-speed;
-  }
- 
+  trill(i-20, i+20, 30, 4);
 }
-
-// falling short note
-// void peal () {
-
-// }
 
 void rest_del(int del) {
   fOut = 0;
@@ -171,37 +146,12 @@ void rest_del(int del) {
 
 void loop () {
 
-  wibble(5000);
-  rest_del(50);
-
-  wibble(4700);
-  rest_del(50);
-
-  wibble(4500);
-  rest_del(50);
-
-  wibble(4100);
-  rest_del(50);
-  
-  wibble(4000);
-  rest_del(2000);
-
-  vol = 0.7;
-  trill(1900, 500, 10, 5);
-  // rest_del(50);
   vol = 0.8;
 
-  hump(2100, 20);
-  vol = 0.7;
-  // rest_del(50);
-  trill(1900, 500, 6, 3);
-  
-  rest_del(300);
-  hump_falling(1900, 15);
-  rest_del(100);
-  hump_falling(1900, 10);
-
-  rest_del(3000);
+  hill(1500, 15);
+  rest_del(500);
+  dip(1200, 15);
+  rest_del(1000);
 }
 
 void TC4_Handler(timer_callback_args_t *p_args)
